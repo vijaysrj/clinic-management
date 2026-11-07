@@ -50,7 +50,7 @@ export default async function Landing({ searchParams }: { searchParams: Promise<
       <section className="mx-auto grid max-w-5xl gap-10 px-4 pt-8 pb-14 md:grid-cols-[1.2fr_1fr] md:items-center md:pt-14">
         <div>
           <h1 className="text-4xl font-semibold leading-[1.1] tracking-tight md:text-5xl">Run your clinic&apos;s day from one simple screen.</h1>
-          <p className="mt-4 max-w-lg text-lg text-muted">{APP_TAGLINE} Patients book online and watch the queue from home. You see who&apos;s next.</p>
+          <p className="mt-4 max-w-lg text-lg text-muted">{APP_TAGLINE} Patients book online and watch the queue. You see who&apos;s next.</p>
           <div className="mt-7 flex flex-wrap gap-3">
             <Link href="/register" className={buttonClass("primary", "lg")}>Register your clinic</Link>
             <a href="#find" className={buttonClass("secondary", "lg")}>I&apos;m a patient</a>
