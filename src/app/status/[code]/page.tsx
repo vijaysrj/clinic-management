@@ -49,7 +49,7 @@ export default async function StatusPage({ params, searchParams }: { params: Pro
       <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted">Upcoming appointments</h2>
       {status.upcoming.length === 0 && (
         <Card className="p-5 text-sm text-muted">
-          No upcoming appointments. <Link href="/book" className="font-medium text-brand-700">Book one</Link>
+          No upcoming appointments. <Link href={`/book?id=${status.patient.code}`} className="font-medium text-brand-700">Book one</Link>
         </Card>
       )}
       <div className="space-y-3">
@@ -97,7 +97,7 @@ export default async function StatusPage({ params, searchParams }: { params: Pro
         })}
       </div>
       <div className="mt-6 text-center">
-        <Link href="/book" className={buttonClass("secondary")}>Book another appointment</Link>
+        <Link href={`/book?id=${status.patient.code}`} className={buttonClass("secondary")}>Book another appointment</Link>
       </div>
       <p className="mt-4 text-center text-xs text-muted">This page updates every 30 seconds.</p>
     </PublicShell>

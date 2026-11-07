@@ -29,11 +29,13 @@ function period(min: number) {
 export function BookingFlow({
   doctors,
   initialDoctorId,
+  initialPatientCode,
   action,
   staffMode = false,
 }: {
   doctors: Doctor[];
   initialDoctorId?: number;
+  initialPatientCode?: string;
   action: (f: BookingForm) => Promise<BookingResult>;
   staffMode?: boolean;
 }) {
@@ -45,7 +47,30 @@ export function BookingFlow({
   const [slot, setSlot] = useState<Slot | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
-  const [form, setForm] = useState({ name: "", phone: "", age: "", gender: "", patientCode: "" });
+  const [form, setForm] = useState({ name: "", phone: "", age: "", gender: "" });
+  const [mode, setMode] = useState<"new" | "returning">("new");
+  const [ret, setRet] = useState({ code: "", last4: "" });
+  const [found, setFound] = useState<{ name: string; code: string } | null>(null);
+  const [lookupMsg, setLookupMsg] = useState<string | null>(null);
+
+  // Remember the patient ID on this device so returning patients only pick a slot.
+  useEffect(() => {
+    let code = initialPatientCode ?? "";
+    try { code ||= localStorage.getItem("clinic.patientCode") ?? ""; } catch {}
+    if (code) { setRet((r) => ({ ...r, code })); setMode("returning"); }
+  }, [initialPatientCode]);
+
+  useEffect(() => {
+    setFound(null); setLookupMsg(null);
+    const code = ret.code.trim();
+    if (mode !== "returning" || code.length < 6 || (!staffMode && ret.last4.length !== 4)) return;
+    const t = setTimeout(() => {
+      fetch(`/api/patient-lookup?code=${encodeURIComponent(code)}&last4=${ret.last4}`)
+        .then((r) => r.json())
+        .then((j) => (j.found ? setFound({ name: j.name, code: j.code }) : setLookupMsg("No match. Check the ID and the last 4 digits of your mobile number.")));
+    }, 250);
+    return () => clearTimeout(t);
+  }, [mode, ret, staffMode]);
 
   useEffect(() => {
     if (!doctorId) return;
@@ -79,7 +104,12 @@ export function BookingFlow({
     if (!doctorId || !date || !slot) return;
     setError(null);
     start(async () => {
-      const res = await action({ doctorId, date, startMin: slot.startMin, ...form });
+      const payload =
+        mode === "returning"
+          ? { doctorId, date, startMin: slot.startMin, patientCode: ret.code, phoneLast4: ret.last4, name: "", phone: "", age: "", gender: "" }
+          : { doctorId, date, startMin: slot.startMin, ...form, patientCode: "", phoneLast4: "" };
+      const res = await action(payload);
+      if (res.ok && !staffMode) { try { localStorage.setItem("clinic.patientCode", res.code); } catch {} }
       if (res.ok) router.push(staffMode ? `/staff/queue?highlight=${res.appointmentId}` : `/status/${res.code}?booked=${res.appointmentId}`);
       else {
         setError(res.error);
@@ -201,33 +231,62 @@ export function BookingFlow({
           <p className="mb-4 flex items-center gap-1.5 text-sm text-muted">
             <Clock className="size-4" /> {doctor?.displayName} · {dayParts(date!).wd} {dayParts(date!).day} {dayParts(date!).mon} · {fmt(slot.startMin)} · Token {slot.tokenNo}
           </p>
+          <div className="mb-4 grid grid-cols-2 gap-1 rounded-xl bg-canvas p-1">
+            {(["returning", "new"] as const).map((m) => (
+              <button
+                key={m}
+                type="button"
+                onClick={() => { setMode(m); setError(null); }}
+                className={cx("h-9 rounded-lg text-sm font-medium", mode === m ? "bg-white shadow-sm" : "text-muted")}
+              >
+                {m === "returning" ? "I have a Patient ID" : "New patient"}
+              </button>
+            ))}
+          </div>
           <form onSubmit={submit} className="space-y-4">
-            <Field label="Patient name">
-              <Input required autoComplete="name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Full name" />
-            </Field>
-            <Field label="Mobile number">
-              <Input required inputMode="tel" autoComplete="tel" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="10-digit mobile" />
-            </Field>
-            <div className="grid grid-cols-2 gap-3">
-              <Field label="Age">
-                <Input inputMode="numeric" value={form.age} onChange={(e) => setForm({ ...form, age: e.target.value.replace(/\D/g, "").slice(0, 3) })} placeholder="Years" />
-              </Field>
-              <Field label="Gender">
-                <Select value={form.gender} onChange={(e) => setForm({ ...form, gender: e.target.value })}>
-                  <option value="">Select</option>
-                  <option value="female">Female</option>
-                  <option value="male">Male</option>
-                  <option value="other">Other</option>
-                </Select>
-              </Field>
-            </div>
-            <Field label="Patient ID (if you have one)" hint="Visited before? Enter your ID to keep your history together. Otherwise we'll create one.">
-              <Input value={form.patientCode} onChange={(e) => setForm({ ...form, patientCode: e.target.value })} placeholder="PT-XXXXXX" />
-            </Field>
+            {mode === "returning" ? (
+              <>
+                <div className={cx("grid gap-3", !staffMode && "grid-cols-[1fr_120px]")}>
+                  <Field label="Patient ID">
+                    <Input required value={ret.code} onChange={(e) => setRet({ ...ret, code: e.target.value.toUpperCase() })} placeholder="PT-XXXXXX" className="font-mono uppercase tracking-wider" />
+                  </Field>
+                  {!staffMode && (
+                    <Field label="Mobile last 4">
+                      <Input required inputMode="numeric" value={ret.last4} onChange={(e) => setRet({ ...ret, last4: e.target.value.replace(/\D/g, "").slice(0, 4) })} placeholder="1234" className="tracking-widest" />
+                    </Field>
+                  )}
+                </div>
+                {found && <p className="rounded-xl bg-brand-50 px-3 py-2 text-sm text-brand-700">Booking for <span className="font-semibold">{found.name}</span> ({found.code})</p>}
+                {lookupMsg && <p className="text-sm text-amber-700">{lookupMsg}</p>}
+                {!staffMode && <p className="text-xs text-muted">The last 4 digits confirm it&apos;s you, so nobody else can book with your ID.</p>}
+              </>
+            ) : (
+              <>
+                <Field label="Patient name">
+                  <Input required autoComplete="name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Full name" />
+                </Field>
+                <Field label="Mobile number">
+                  <Input required inputMode="tel" autoComplete="tel" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="10-digit mobile" />
+                </Field>
+                <div className="grid grid-cols-2 gap-3">
+                  <Field label="Age">
+                    <Input inputMode="numeric" value={form.age} onChange={(e) => setForm({ ...form, age: e.target.value.replace(/\D/g, "").slice(0, 3) })} placeholder="Years" />
+                  </Field>
+                  <Field label="Gender">
+                    <Select value={form.gender} onChange={(e) => setForm({ ...form, gender: e.target.value })}>
+                      <option value="">Select</option>
+                      <option value="female">Female</option>
+                      <option value="male">Male</option>
+                      <option value="other">Other</option>
+                    </Select>
+                  </Field>
+                </div>
+              </>
+            )}
             <ErrorNote>{error}</ErrorNote>
             <div className="flex gap-2">
-              <Button type="button" variant="ghost" onClick={() => setSlot(null)}><ChevronLeft className="size-4" /> Change time</Button>
-              <Button type="submit" size="lg" className="flex-1" disabled={pending}>
+              <Button type="button" variant="ghost" onClick={() => setSlot(null)}><ChevronLeft className="size-4" /> Back</Button>
+              <Button type="submit" size="lg" className="flex-1" disabled={pending || (mode === "returning" && !found)}>
                 {pending ? "Booking…" : staffMode ? "Book walk-in" : "Confirm booking"}
               </Button>
             </div>

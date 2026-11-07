@@ -76,13 +76,23 @@ export type BookingInput = {
   doctorId: number;
   date: string;
   startMin: number;
-  name: string;
-  phone: string;
+  name: string | null;
+  phone: string | null;
   age: number | null;
   gender: "male" | "female" | "other" | null;
-  patientCode?: string | null; // returning patients may give their ID
+  /** Returning patient: their ID. Online bookings must also give the last 4 digits of the phone on file. */
+  patientCode?: string | null;
+  phoneLast4?: string | null;
   source: "online" | "walk_in";
 };
+
+/** Look up a returning patient by ID; online callers must also match the last 4 phone digits. */
+export async function findReturningPatient(code: string, phoneLast4: string | null, requireLast4: boolean) {
+  const [p] = await db.select().from(patients).where(eq(patients.patientCode, code)).limit(1);
+  if (!p) return null;
+  if (requireLast4 && (!phoneLast4 || !p.phone.endsWith(phoneLast4))) return null;
+  return p;
+}
 
 /**
  * Find or create the patient, then take the slot.
@@ -101,15 +111,19 @@ export async function createBooking(input: BookingInput) {
   if (!slot) throw new BookingError("That time is not in the doctor's schedule.");
   if (!slot.available) throw new BookingError("Sorry, that slot was just taken. Please pick another.");
 
-  const phone = normalizePhone(input.phone);
-  const name = input.name.trim().replace(/\s+/g, " ");
+  const phone = normalizePhone(input.phone ?? "");
+  const name = (input.name ?? "").trim().replace(/\s+/g, " ");
+
+  let returning: typeof patients.$inferSelect | null = null;
+  if (input.patientCode) {
+    returning = await findReturningPatient(input.patientCode, input.phoneLast4 ?? null, input.source === "online");
+    if (!returning) throw new BookingError("That Patient ID and phone number don't match our records. Please check, or book as a new patient.");
+  } else if (!name || phone.length !== 10) {
+    throw new BookingError("Please enter the patient's name and mobile number.");
+  }
 
   return db.transaction(async (tx) => {
-    let patient: typeof patients.$inferSelect | undefined;
-    if (input.patientCode) {
-      [patient] = await tx.select().from(patients).where(eq(patients.patientCode, input.patientCode)).limit(1);
-      if (patient && patient.phone !== phone) patient = undefined; // ID must match the phone given
-    }
+    let patient: typeof patients.$inferSelect | undefined = returning ?? undefined;
     if (!patient) {
       [patient] = await tx
         .select()
