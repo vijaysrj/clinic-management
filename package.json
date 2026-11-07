@@ -12,7 +12,8 @@
     "db:seed": "tsx scripts/seed.ts && tsx scripts/import-medicines.ts",
     "test": "tsx --test src/**/*.test.ts",
     "medicines:import": "tsx scripts/import-medicines.ts",
-    "db:demo": "tsx scripts/demo-data.ts"
+    "db:demo": "tsx scripts/demo-data.ts",
+    "vercel-build": "drizzle-kit migrate && tsx scripts/import-medicines.ts && next build"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",

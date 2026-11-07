@@ -31,6 +31,17 @@ Seed logins (change them under Team, or set `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `RE
 - Doctor (admin): `doctor@clinic.test` / `doctor123`
 - Receptionist: `reception@clinic.test` / `reception123`
 
+## Deploy on Vercel
+
+1. Import the repo in Vercel and add a Postgres database (Storage → Neon). This sets `DATABASE_URL`.
+2. Add `AUTH_SECRET` (any long random string).
+3. Deploy. The build runs migrations and loads the medicine list.
+4. Open `/setup` once to create the clinic and the first admin doctor.
+
+## Medicines
+
+`data/medicines-starter.csv` has common Indian brands. To load a fuller list, download a CSV such as the "A-Z medicine dataset of India" and run `npm run medicines:import -- path/to/file.csv`.
+
 ## Notes
 
 - Times are stored as minutes from midnight in the clinic's timezone (`CLINIC_TZ`, default `Asia/Kolkata`).

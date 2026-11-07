@@ -1,12 +1,14 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { CalendarPlus, Search, UserRound } from "lucide-react";
 import { PublicShell } from "@/components/PublicShell";
 import { Card, buttonClass } from "@/components/ui";
-import { listDoctors } from "@/lib/booking";
+import { getDefaultBranch, listDoctors } from "@/lib/booking";
 
 export const dynamic = "force-dynamic";
 
 export default async function Home() {
+  if (!(await getDefaultBranch())) redirect("/setup");
   const doctors = await listDoctors();
   return (
     <PublicShell>
