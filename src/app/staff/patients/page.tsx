@@ -17,15 +17,17 @@ export default async function PatientsPage({ searchParams }: { searchParams: Pro
   const q = ((await searchParams).q ?? "").trim();
   let results: { id: number; patientCode: string; name: string; phone: string; age: number | null; lastVisit: string | null; visits: number }[] = [];
 
-  if (q) {
+  {
     const digits = q.replace(/\D/g, "");
-    const looksLikeCode = /^(pt)?[-\s]?[a-z0-9]{6}$/i.test(q) && /[a-z]/i.test(q.replace(/^pt/i, ""));
+    const looksLikeCode = !!q && /^(pt)?[-\s]?[a-z0-9]{6}$/i.test(q) && /[a-z]/i.test(q.replace(/^pt/i, ""));
     if (looksLikeCode) {
       const [hit] = await db.select({ code: patients.patientCode }).from(patients).where(and(eq(patients.branchId, user.branchId), eq(patients.patientCode, normalizePatientCode(q)))).limit(1);
       if (hit) redirect(`/staff/patients/${hit.code}`);
     }
-    const where =
-      digits.length >= 4 && digits.length === q.replace(/[\s+-]/g, "").length
+    // No search: the most recently booked patients.
+    const where = !q
+      ? undefined
+      : digits.length >= 4 && digits.length === q.replace(/[\s+-]/g, "").length
         ? like(patients.phone, `%${digits.slice(-10)}%`)
         : or(ilike(patients.name, `%${q}%`), ilike(patients.patientCode, `%${q}%`));
     results = await db
@@ -42,7 +44,7 @@ export default async function PatientsPage({ searchParams }: { searchParams: Pro
       .leftJoin(appointments, eq(appointments.patientId, patients.id))
       .where(and(eq(patients.branchId, user.branchId), where))
       .groupBy(patients.id)
-      .orderBy(desc(sql`max(${appointments.date})`))
+      .orderBy(sql`max(${appointments.createdAt}) desc nulls last`, desc(patients.createdAt))
       .limit(50);
   }
 
@@ -53,9 +55,10 @@ export default async function PatientsPage({ searchParams }: { searchParams: Pro
         <Input name="q" defaultValue={q} autoFocus placeholder="PT-7K3M9Q, 98765 43210 or name" />
         <Button type="submit"><Search className="size-4" /> Search</Button>
       </form>
-      {q && (
+      {!q && <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted">Recent patients</h2>}
+      {(
         <Card>
-          {results.length === 0 && <p className="p-4 text-sm text-muted">No patients found for “{q}”.</p>}
+          {results.length === 0 && <p className="p-4 text-sm text-muted">{q ? <>No patients found for “{q}”.</> : "No patients yet."}</p>}
           {results.map((r) => (
             <Link key={r.id} href={`/staff/patients/${r.patientCode}`} className="flex flex-wrap items-center gap-x-4 gap-y-1 border-b border-line px-4 py-3 last:border-0 hover:bg-canvas">
               <span className="min-w-40 flex-1">

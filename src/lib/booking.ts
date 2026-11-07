@@ -57,8 +57,11 @@ export async function getDoctor(id: number) {
   return d ?? null;
 }
 
-/** All slots for a doctor on a date, marked available / taken / past. */
-export async function getDaySlots(doctorId: number, date: string): Promise<SlotView[]> {
+/**
+ * All slots for a doctor on a date, marked available / taken / past.
+ * Staff booking walk-ins (allowPast) can still use today's slots whose time has gone by.
+ */
+export async function getDaySlots(doctorId: number, date: string, allowPast = false): Promise<SlotView[]> {
   const [weekly, exceptions, taken] = await Promise.all([
     db.select().from(scheduleSessions).where(and(eq(scheduleSessions.doctorId, doctorId), eq(scheduleSessions.weekday, weekdayOf(date)))),
     db.select().from(scheduleExceptions).where(and(eq(scheduleExceptions.doctorId, doctorId), eq(scheduleExceptions.date, date))),
@@ -69,12 +72,12 @@ export async function getDaySlots(doctorId: number, date: string): Promise<SlotV
   ]);
   const slots = buildSlots(sessionsForDate(weekly, exceptions));
   const today = todayISO();
-  const nowMin = date === today ? nowMinutes() : date < today ? 24 * 60 : null;
+  const nowMin = date === today ? (allowPast ? null : nowMinutes()) : date < today ? 24 * 60 : null;
   return markSlots(slots, new Set(taken.map((t) => t.startMin)), nowMin);
 }
 
 /** For the date strip: which of the next N days have any free slot. Three queries in total. */
-export async function getAvailableDays(doctorId: number, days = BOOKING_DAYS_AHEAD) {
+export async function getAvailableDays(doctorId: number, days = BOOKING_DAYS_AHEAD, allowPast = false) {
   const today = todayISO();
   const last = addDays(today, days - 1);
   const [weekly, exceptions, taken] = await Promise.all([
@@ -92,7 +95,7 @@ export async function getAvailableDays(doctorId: number, days = BOOKING_DAYS_AHE
     const wd = weekdayOf(date);
     const slots = buildSlots(sessionsForDate(weekly.filter((s) => s.weekday === wd), exceptions.filter((e) => e.date === date)));
     const takenSet = new Set(taken.filter((t) => t.date === date).map((t) => t.startMin));
-    const marked = markSlots(slots, takenSet, date === today ? nowMin : null);
+    const marked = markSlots(slots, takenSet, date === today && !allowPast ? nowMin : null);
     out.push({ date, free: marked.filter((s) => s.available).length, total: slots.length });
   }
   return out;
@@ -135,7 +138,7 @@ export async function createBooking(input: BookingInput) {
   if (input.date < today || input.date > addDays(today, BOOKING_DAYS_AHEAD)) {
     throw new BookingError("Please pick a date within the next two weeks.");
   }
-  const slots = await getDaySlots(input.doctorId, input.date);
+  const slots = await getDaySlots(input.doctorId, input.date, input.source === "walk_in");
   const slot = slots.find((s) => s.startMin === input.startMin);
   if (!slot) throw new BookingError("That time is not in the doctor's schedule.");
   if (!slot.available) throw new BookingError("Sorry, that slot was just taken. Please pick another.");

@@ -77,15 +77,15 @@ export function BookingFlow({
   useEffect(() => {
     if (!doctorId) return;
     setDays(null); setDate(null); setSlots(null); setSlot(null);
-    fetch(`/api/days?doctorId=${doctorId}`).then((r) => r.json()).then((j) => {
+    fetch(`/api/days?doctorId=${doctorId}${staffMode ? "&staff=1" : ""}`).then((r) => r.json()).then((j) => {
       setDays(j.days);
       const first = (j.days as Day[]).find((d) => d.free > 0);
       if (first) setDate(first.date);
     });
-  }, [doctorId]);
+  }, [doctorId, staffMode]);
 
   const loadSlots = (dId: number, dt: string) =>
-    fetch(`/api/slots?doctorId=${dId}&date=${dt}`).then((r) => r.json()).then((j) => setSlots(j.slots));
+    fetch(`/api/slots?doctorId=${dId}&date=${dt}${staffMode ? "&staff=1" : ""}`).then((r) => r.json()).then((j) => setSlots(j.slots));
 
   useEffect(() => {
     if (!doctorId || !date) return;
@@ -112,7 +112,7 @@ export function BookingFlow({
           : { doctorId, date, startMin: slot.startMin, ...form, patientCode: "", phoneLast4: "" };
       const res = await action(payload);
       if (res.ok && !staffMode) { try { localStorage.setItem(`clinic.patientCode.${clinicSlug}`, res.code); } catch {} }
-      if (res.ok) router.push(staffMode ? `/staff/queue?highlight=${res.appointmentId}` : `/c/${clinicSlug}/status/${res.code}?booked=${res.appointmentId}`);
+      if (res.ok) router.push(staffMode ? `/staff/queue?highlight=${res.appointmentId}&date=${date}&doctor=${doctorId}` : `/c/${clinicSlug}/status/${res.code}?booked=${res.appointmentId}`);
       else {
         setError(res.error);
         if (res.error.includes("taken")) { setSlot(null); loadSlots(doctorId, date); }

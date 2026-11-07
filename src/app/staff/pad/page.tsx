@@ -1,11 +1,11 @@
 import Link from "next/link";
-import { and, asc, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, gt, inArray } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import { NotebookPen } from "lucide-react";
 import { db, schema } from "@/db";
 import { requireUser } from "@/lib/auth";
 import { getPadData } from "@/lib/visits";
-import { fmtMinutes, todayISO } from "@/lib/time";
+import { fmtDate, fmtMinutes, todayISO } from "@/lib/time";
 import { PadEditor } from "@/components/PadEditor";
 import { VisitHistory } from "@/components/VisitHistory";
 import { Badge, Card, PageHeader, StatusBadge, buttonClass } from "@/components/ui";
@@ -32,6 +32,21 @@ export default async function PadPage({ searchParams }: { searchParams: Promise<
           )
           .orderBy(asc(schema.appointments.startMin))
       : [];
+    const upcoming = user.doctorId
+      ? await db
+          .select({ a: schema.appointments, p: schema.patients })
+          .from(schema.appointments)
+          .innerJoin(schema.patients, eq(schema.patients.id, schema.appointments.patientId))
+          .where(
+            and(
+              eq(schema.appointments.doctorId, user.doctorId),
+              gt(schema.appointments.date, todayISO()),
+              inArray(schema.appointments.status, ["booked", "arrived"]),
+            ),
+          )
+          .orderBy(asc(schema.appointments.date), asc(schema.appointments.startMin))
+          .limit(20)
+      : [];
     const order = { in_consultation: 0, arrived: 1, booked: 2, completed: 3 } as Record<string, number>;
     rows.sort((x, y) => order[x.a.status] - order[y.a.status] || x.a.startMin - y.a.startMin);
     return (
@@ -50,6 +65,23 @@ export default async function PadPage({ searchParams }: { searchParams: Promise<
             </Link>
           ))}
         </Card>
+        {upcoming.length > 0 && (
+          <>
+            <h2 className="mt-8 mb-2 text-sm font-semibold uppercase tracking-wide text-muted">Coming up</h2>
+            <Card>
+              {upcoming.map(({ a, p }) => (
+                <Link key={a.id} href={`/staff/patients/${p.patientCode}`} className="flex items-center gap-4 border-b border-line px-4 py-3 last:border-0 hover:bg-canvas">
+                  <span className="grid size-10 place-items-center rounded-xl bg-canvas font-semibold">{a.tokenNo}</span>
+                  <span className="flex-1">
+                    <span className="font-medium">{p.name}</span>
+                    <span className="ml-2 text-sm text-muted">{fmtDate(a.date)} · {fmtMinutes(a.startMin)} · {p.patientCode}</span>
+                  </span>
+                  {a.source === "walk_in" && <Badge tone="gray">Walk-in</Badge>}
+                </Link>
+              ))}
+            </Card>
+          </>
+        )}
       </div>
     );
   }

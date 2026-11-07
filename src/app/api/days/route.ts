@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { getSessionUser } from "@/lib/auth";
 import { getAvailableDays } from "@/lib/booking";
 
 export const dynamic = "force-dynamic";
@@ -6,5 +7,5 @@ export const dynamic = "force-dynamic";
 export async function GET(req: Request) {
   const doctorId = Number(new URL(req.url).searchParams.get("doctorId"));
   if (!Number.isInteger(doctorId) || doctorId <= 0) return NextResponse.json({ error: "doctorId required" }, { status: 400 });
-  return NextResponse.json({ days: await getAvailableDays(doctorId) });
+  return NextResponse.json({ days: await getAvailableDays(doctorId, undefined, new URL(req.url).searchParams.get("staff") === "1" && (await getSessionUser()) != null) });
 }
