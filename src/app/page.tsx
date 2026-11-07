@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { CalendarCheck2, ChartColumn, MapPin, NotebookPen, Search, Stethoscope, Users } from "lucide-react";
+import { CalendarCheck2, PlayCircle, ChartColumn, MapPin, NotebookPen, Search, Stethoscope, Users } from "lucide-react";
 import { Button, Card, ErrorNote, Input, buttonClass } from "@/components/ui";
+import { HowToVideos } from "@/components/HowToVideos";
 import { clinicSlugForPatient, searchClinics } from "@/lib/booking";
 import { APP_NAME, APP_TAGLINE } from "@/lib/brand";
 import { normalizePatientCode } from "@/lib/patientCode";
@@ -55,6 +56,9 @@ export default async function Landing({ searchParams }: { searchParams: Promise<
             <Link href="/register" className={buttonClass("primary", "lg")}>Register your clinic</Link>
             <a href="#find" className={buttonClass("secondary", "lg")}>I&apos;m a patient</a>
           </div>
+          <a href="#videos" className="mt-4 inline-flex items-center gap-1.5 text-sm font-medium text-brand-700 hover:underline">
+            <PlayCircle className="size-4" /> Watch how it works (about a minute each)
+          </a>
         </div>
 
         <div className="space-y-4" id="find">
@@ -103,8 +107,14 @@ export default async function Landing({ searchParams }: { searchParams: Promise<
         </div>
       </section>
 
+      <section id="videos" className="mx-auto max-w-5xl scroll-mt-4 px-4 pt-14">
+        <h2 className="text-center text-2xl font-semibold tracking-tight">See it in action</h2>
+        <p className="mt-2 mb-6 text-center text-muted">Short walkthroughs for patients, reception and doctors.</p>
+        <HowToVideos />
+      </section>
+
       <section className="mx-auto max-w-5xl px-4 py-14">
-        <h2 className="text-2xl font-semibold tracking-tight">How it works</h2>
+        <h2 className="text-2xl font-semibold tracking-tight">Getting started</h2>
         <ol className="mt-6 grid gap-4 md:grid-cols-3">
           {STEPS.map(([title, text], i) => (
             <Card key={title} className="p-5">
