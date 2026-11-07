@@ -13,7 +13,7 @@
     "test": "tsx --test src/**/*.test.ts",
     "medicines:import": "tsx scripts/import-medicines.ts",
     "db:demo": "tsx scripts/demo-data.ts",
-    "vercel-build": "drizzle-kit migrate && tsx scripts/import-medicines.ts && next build"
+    "vercel-build": "bash scripts/vercel-build.sh"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
