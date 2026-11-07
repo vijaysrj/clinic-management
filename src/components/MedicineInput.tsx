@@ -42,7 +42,14 @@ export function MedicineInput({
       <input
         autoFocus={autoFocus}
         className={cx(inputClass, "pl-9 font-medium")}
-        placeholder="Type a medicine name or salt…"
+        // Keep browsers from offering saved contacts here: no "name" wording, autofill off.
+        placeholder="Type a medicine or salt…"
+        name="rx-drug-search"
+        autoComplete="off"
+        autoCorrect="off"
+        spellCheck={false}
+        data-1p-ignore
+        data-lpignore="true"
         value={value}
         onChange={(e) => { typed.current = true; onChange(e.target.value); }}
         onFocus={() => hits.length && setOpen(true)}

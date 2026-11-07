@@ -100,19 +100,19 @@ export function PadEditor({
                 {it.composition && <div className="px-1 text-xs text-muted">{it.composition}</div>}
                 <div className="grid gap-2 sm:grid-cols-3">
                   <div className="space-y-1">
-                    <Input className="h-9" value={it.dose ?? ""} onChange={(e) => update(i, { dose: e.target.value })} placeholder="Dose" />
+                    <Input autoComplete="off" className="h-9" value={it.dose ?? ""} onChange={(e) => update(i, { dose: e.target.value })} placeholder="Dose" />
                     <Chips options={DOSES} value={it.dose} onChange={(v) => update(i, { dose: v })} />
                   </div>
                   <div className="space-y-1">
-                    <Input className="h-9" value={it.timing ?? ""} onChange={(e) => update(i, { timing: e.target.value })} placeholder="When" />
+                    <Input autoComplete="off" className="h-9" value={it.timing ?? ""} onChange={(e) => update(i, { timing: e.target.value })} placeholder="When" />
                     <Chips options={TIMINGS} value={it.timing} onChange={(v) => update(i, { timing: v })} />
                   </div>
                   <div className="space-y-1">
-                    <Input className="h-9" value={it.duration ?? ""} onChange={(e) => update(i, { duration: e.target.value })} placeholder="Duration" />
+                    <Input autoComplete="off" className="h-9" value={it.duration ?? ""} onChange={(e) => update(i, { duration: e.target.value })} placeholder="Duration" />
                     <Chips options={DURATIONS} value={it.duration} onChange={(v) => update(i, { duration: v })} />
                   </div>
                 </div>
-                <Input className="h-9 text-sm" value={it.instructions ?? ""} onChange={(e) => update(i, { instructions: e.target.value })} placeholder="Instructions (optional), e.g. with warm water" />
+                <Input autoComplete="off" className="h-9 text-sm" value={it.instructions ?? ""} onChange={(e) => update(i, { instructions: e.target.value })} placeholder="Instructions (optional), e.g. with warm water" />
               </div>
               <button type="button" aria-label="Remove medicine" onClick={() => { setSaved(false); setItems(items.length > 1 ? items.filter((_, j) => j !== i) : [emptyItem()]); }} className="h-9 rounded-lg p-2 text-muted hover:bg-red-50 hover:text-red-700">
                 <Trash2 className="size-4" />
