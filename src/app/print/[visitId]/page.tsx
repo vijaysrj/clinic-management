@@ -1,3 +1,4 @@
+import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/auth";
 import { getPrintData } from "@/lib/visits";
@@ -13,6 +14,7 @@ export default async function PrintPage({ params, searchParams }: { params: Prom
   const d = await getPrintData(Number(visitId), user.branchId);
   if (!d) notFound();
   const { patient: p, doctor, branch, v, a, items } = d;
+  const site = (await headers()).get("host") ?? "";
 
   return (
     <div className="min-h-dvh bg-canvas py-6 print:bg-white print:py-0">
@@ -89,7 +91,11 @@ export default async function PrintPage({ params, searchParams }: { params: Prom
         </section>
 
         <footer className="mt-6 flex items-end justify-between pt-6">
-          <div className="text-[10px] text-gray-500">Check your appointment status with ID {p.patientCode}</div>
+          <div className="max-w-[70mm] text-[10px] leading-snug text-gray-600">
+            {v.followUpDate ? "Book your follow-up" : "Book your next visit"} and see your place in the queue at{" "}
+            <span className="font-semibold text-black">{site}</span> using Patient ID{" "}
+            <span className="font-semibold text-black">{p.patientCode}</span>. No sign-up needed.
+          </div>
           <div className="text-center">
             <div className="w-40 border-t border-gray-400 pt-1 text-[11px]">{doctor.displayName}</div>
           </div>
