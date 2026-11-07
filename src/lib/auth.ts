@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { SignJWT, jwtVerify } from "jose";
@@ -43,7 +44,7 @@ export async function destroySession() {
 }
 
 /** The signed-in staff member, re-read from the database so deactivation takes effect at once. */
-export async function getSessionUser(): Promise<SessionUser | null> {
+export const getSessionUser = cache(async function getSessionUser(): Promise<SessionUser | null> {
   const token = (await cookies()).get(COOKIE)?.value;
   if (!token) return null;
   let staffId: number;
@@ -69,7 +70,7 @@ export async function getSessionUser(): Promise<SessionUser | null> {
     isAdmin: r.s.isAdmin,
     doctorId: r.doctorId,
   };
-}
+});
 
 export async function requireUser(opts?: { role?: SessionUser["role"]; admin?: boolean }): Promise<SessionUser> {
   const user = await getSessionUser();

@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 import { and, asc, eq, inArray, lt, ne, sql } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { buildSlots, markSlots, sessionsForDate, type SlotView } from "./slots";
@@ -10,10 +11,10 @@ const { appointments, doctors, patients, scheduleSessions, scheduleExceptions, b
 export const BOOKING_DAYS_AHEAD = 14;
 export const ACTIVE_STATUSES = ["booked", "arrived", "in_consultation"] as const;
 
-export async function getDefaultBranch() {
+export const getDefaultBranch = cache(async () => {
   const [b] = await db.select().from(branches).orderBy(asc(branches.id)).limit(1);
   return b ?? null;
-}
+});
 
 export async function listDoctors(branchId?: number) {
   return db
@@ -44,14 +45,27 @@ export async function getDaySlots(doctorId: number, date: string): Promise<SlotV
   return markSlots(slots, new Set(taken.map((t) => t.startMin)), nowMin);
 }
 
-/** For the date strip: which of the next N days have any free slot. */
+/** For the date strip: which of the next N days have any free slot. Three queries in total. */
 export async function getAvailableDays(doctorId: number, days = BOOKING_DAYS_AHEAD) {
   const today = todayISO();
+  const last = addDays(today, days - 1);
+  const [weekly, exceptions, taken] = await Promise.all([
+    db.select().from(scheduleSessions).where(eq(scheduleSessions.doctorId, doctorId)),
+    db.select().from(scheduleExceptions).where(and(eq(scheduleExceptions.doctorId, doctorId), sql`${scheduleExceptions.date} between ${today} and ${last}`)),
+    db
+      .select({ date: appointments.date, startMin: appointments.startMin })
+      .from(appointments)
+      .where(and(eq(appointments.doctorId, doctorId), sql`${appointments.date} between ${today} and ${last}`, ne(appointments.status, "cancelled"))),
+  ]);
+  const nowMin = nowMinutes();
   const out: { date: string; free: number; total: number }[] = [];
   for (let i = 0; i < days; i++) {
     const date = addDays(today, i);
-    const slots = await getDaySlots(doctorId, date);
-    out.push({ date, free: slots.filter((s) => s.available).length, total: slots.length });
+    const wd = weekdayOf(date);
+    const slots = buildSlots(sessionsForDate(weekly.filter((s) => s.weekday === wd), exceptions.filter((e) => e.date === date)));
+    const takenSet = new Set(taken.filter((t) => t.date === date).map((t) => t.startMin));
+    const marked = markSlots(slots, takenSet, date === today ? nowMin : null);
+    out.push({ date, free: marked.filter((s) => s.available).length, total: slots.length });
   }
   return out;
 }
