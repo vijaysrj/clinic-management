@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { and, asc, eq } from "drizzle-orm";
-import { Phone } from "lucide-react";
+import { NotebookPen, Phone } from "lucide-react";
 import { db, schema } from "@/db";
 import { requireUser } from "@/lib/auth";
 import { listDoctors } from "@/lib/booking";
@@ -60,6 +60,11 @@ export default async function QueuePage({ searchParams }: { searchParams: Promis
           {r.pay && <span className="font-medium text-brand-700">₹{r.pay.amount} · {MODE_LABEL[r.pay.mode]}</span>}
         </div>
       </div>
+      {user.role === "doctor" && !["cancelled", "no_show"].includes(r.a.status) && (
+        <Link href={`/staff/pad?appointment=${r.a.id}`} className={buttonClass("secondary", "sm")}>
+          <NotebookPen className="size-4" /> Pad
+        </Link>
+      )}
       <QueueActions
         id={r.a.id}
         status={r.a.status}

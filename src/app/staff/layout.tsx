@@ -16,6 +16,13 @@ export default async function StaffLayout({ children }: { children: React.ReactN
   const branch = await getDefaultBranch();
   const items: NavItem[] = [
     { href: "/staff/queue", label: "Today's queue", icon: "queue" },
+    ...(user.role === "doctor"
+      ? ([
+          { href: "/staff/pad", label: "Doctor's pad", icon: "pad" },
+          { href: "/staff/patients", label: "Patients", icon: "patients" },
+          { href: "/staff/reports", label: "Reports", icon: "reports" },
+        ] as NavItem[])
+      : []),
     { href: "/staff/book", label: "Walk-in booking", icon: "book" },
     { href: "/staff/schedules", label: "Schedules", icon: "schedules" },
   ];

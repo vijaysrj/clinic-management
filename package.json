@@ -9,8 +9,10 @@
     "lint": "tsc --noEmit",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
-    "db:seed": "tsx scripts/seed.ts",
-    "test": "tsx --test src/**/*.test.ts"
+    "db:seed": "tsx scripts/seed.ts && tsx scripts/import-medicines.ts",
+    "test": "tsx --test src/**/*.test.ts",
+    "medicines:import": "tsx scripts/import-medicines.ts",
+    "db:demo": "tsx scripts/demo-data.ts"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
