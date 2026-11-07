@@ -18,7 +18,7 @@ async function main() {
 
   const [branch] = await db
     .insert(schema.branches)
-    .values({ name: process.env.CLINIC_NAME ?? "Sunrise Clinic", address: "12 Main Road", phone: "044 0000 0000" })
+    .values({ name: process.env.CLINIC_NAME ?? "Sunrise Clinic", slug: process.env.CLINIC_SLUG ?? "sunrise-clinic", address: "12 Main Road", phone: "044 0000 0000" })
     .returning();
   const [docStaff] = await db
     .insert(schema.staff)

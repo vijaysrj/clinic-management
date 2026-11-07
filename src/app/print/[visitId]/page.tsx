@@ -14,7 +14,7 @@ export default async function PrintPage({ params, searchParams }: { params: Prom
   const d = await getPrintData(Number(visitId), user.branchId);
   if (!d) notFound();
   const { patient: p, doctor, branch, v, a, items } = d;
-  const site = (await headers()).get("host") ?? "";
+  const site = `${(await headers()).get("host") ?? ""}/c/${branch.slug}`;
 
   return (
     <div className="min-h-dvh bg-canvas py-6 print:bg-white print:py-0">

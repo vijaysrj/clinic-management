@@ -36,7 +36,7 @@ Seed logins (change them under Team, or set `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `RE
 1. Import the repo in Vercel and add a Postgres database (Storage → Neon). This sets `DATABASE_URL`.
 2. Add `AUTH_SECRET` (any long random string).
 3. Deploy. The build runs migrations and loads the medicine list.
-4. Open `/setup` once to create the clinic and the first admin doctor.
+4. Open `/register` to create a clinic and its admin doctor. Any number of clinics can register; each gets its own patient page at `/c/<slug>` and its patients, staff and reports are kept separate. The home page `/` is the product landing page with clinic search and a Patient ID lookup.
 
 ## Medicines
 

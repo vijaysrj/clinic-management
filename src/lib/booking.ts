@@ -11,16 +11,44 @@ const { appointments, doctors, patients, scheduleSessions, scheduleExceptions, b
 export const BOOKING_DAYS_AHEAD = 14;
 export const ACTIVE_STATUSES = ["booked", "arrived", "in_consultation"] as const;
 
-export const getDefaultBranch = cache(async () => {
-  const [b] = await db.select().from(branches).orderBy(asc(branches.id)).limit(1);
+export const getBranchBySlug = cache(async (slug: string) => {
+  const [b] = await db.select().from(branches).where(eq(branches.slug, slug.toLowerCase())).limit(1);
   return b ?? null;
 });
 
-export async function listDoctors(branchId?: number) {
+export const getBranch = cache(async (id: number) => {
+  const [b] = await db.select().from(branches).where(eq(branches.id, id)).limit(1);
+  return b ?? null;
+});
+
+/** Clinics for the "find your clinic" search on the landing page. */
+export async function searchClinics(q: string) {
+  const term = q.trim();
+  if (term.length < 2) return [];
+  return db
+    .select({ slug: branches.slug, name: branches.name, address: branches.address })
+    .from(branches)
+    .where(sql`${branches.name} ilike ${"%" + term + "%"} or ${branches.address} ilike ${"%" + term + "%"}`)
+    .orderBy(asc(branches.name))
+    .limit(10);
+}
+
+/** Which clinic a patient ID belongs to (IDs are unique across clinics). */
+export async function clinicSlugForPatient(code: string) {
+  const [r] = await db
+    .select({ slug: branches.slug })
+    .from(patients)
+    .innerJoin(branches, eq(branches.id, patients.branchId))
+    .where(eq(patients.patientCode, code))
+    .limit(1);
+  return r?.slug ?? null;
+}
+
+export async function listDoctors(branchId: number) {
   return db
     .select()
     .from(doctors)
-    .where(and(eq(doctors.active, true), branchId ? eq(doctors.branchId, branchId) : undefined))
+    .where(and(eq(doctors.active, true), eq(doctors.branchId, branchId)))
     .orderBy(asc(doctors.displayName));
 }
 
@@ -73,6 +101,7 @@ export async function getAvailableDays(doctorId: number, days = BOOKING_DAYS_AHE
 export class BookingError extends Error {}
 
 export type BookingInput = {
+  branchId: number;
   doctorId: number;
   date: string;
   startMin: number;
@@ -87,8 +116,8 @@ export type BookingInput = {
 };
 
 /** Look up a returning patient by ID; online callers must also match the last 4 phone digits. */
-export async function findReturningPatient(code: string, phoneLast4: string | null, requireLast4: boolean) {
-  const [p] = await db.select().from(patients).where(eq(patients.patientCode, code)).limit(1);
+export async function findReturningPatient(branchId: number, code: string, phoneLast4: string | null, requireLast4: boolean) {
+  const [p] = await db.select().from(patients).where(and(eq(patients.branchId, branchId), eq(patients.patientCode, code))).limit(1);
   if (!p) return null;
   if (requireLast4 && (!phoneLast4 || !p.phone.endsWith(phoneLast4))) return null;
   return p;
@@ -100,7 +129,7 @@ export async function findReturningPatient(code: string, phoneLast4: string | nu
  */
 export async function createBooking(input: BookingInput) {
   const doctor = await getDoctor(input.doctorId);
-  if (!doctor || !doctor.active) throw new BookingError("This doctor is not taking bookings.");
+  if (!doctor || !doctor.active || doctor.branchId !== input.branchId) throw new BookingError("This doctor is not taking bookings.");
 
   const today = todayISO();
   if (input.date < today || input.date > addDays(today, BOOKING_DAYS_AHEAD)) {
@@ -116,7 +145,7 @@ export async function createBooking(input: BookingInput) {
 
   let returning: typeof patients.$inferSelect | null = null;
   if (input.patientCode) {
-    returning = await findReturningPatient(input.patientCode, input.phoneLast4 ?? null, input.source === "online");
+    returning = await findReturningPatient(input.branchId, input.patientCode, input.phoneLast4 ?? null, input.source === "online");
     if (!returning) throw new BookingError("That Patient ID and phone number don't match our records. Please check, or book as a new patient.");
   } else if (!name || phone.length !== 10) {
     throw new BookingError("Please enter the patient's name and mobile number.");
@@ -128,7 +157,7 @@ export async function createBooking(input: BookingInput) {
       [patient] = await tx
         .select()
         .from(patients)
-        .where(and(eq(patients.phone, phone), sql`lower(${patients.name}) = lower(${name})`))
+        .where(and(eq(patients.branchId, input.branchId), eq(patients.phone, phone), sql`lower(${patients.name}) = lower(${name})`))
         .limit(1);
     }
     if (patient) {
@@ -142,7 +171,7 @@ export async function createBooking(input: BookingInput) {
       for (let attempt = 0; attempt < 5 && !patient; attempt++) {
         const rows = await tx
           .insert(patients)
-          .values({ patientCode: generatePatientCode(), name, phone, age: input.age, gender: input.gender })
+          .values({ branchId: input.branchId, patientCode: generatePatientCode(), name, phone, age: input.age, gender: input.gender })
           .onConflictDoNothing({ target: patients.patientCode })
           .returning();
         patient = rows[0];
@@ -209,8 +238,8 @@ export async function patientsAhead(appt: { doctorId: number; date: string; star
 }
 
 /** Everything the public status page shows for a patient ID. */
-export async function getPatientStatus(code: string) {
-  const [patient] = await db.select().from(patients).where(eq(patients.patientCode, code)).limit(1);
+export async function getPatientStatus(branchId: number, code: string) {
+  const [patient] = await db.select().from(patients).where(and(eq(patients.branchId, branchId), eq(patients.patientCode, code))).limit(1);
   if (!patient) return null;
   const today = todayISO();
   const rows = await db
@@ -243,8 +272,8 @@ export async function nowServing(doctorId: number, date: string) {
   return r?.tokenNo ?? null;
 }
 
-export async function cancelByPatient(appointmentId: number, code: string) {
-  const [p] = await db.select({ id: patients.id }).from(patients).where(eq(patients.patientCode, code)).limit(1);
+export async function cancelByPatient(branchId: number, appointmentId: number, code: string) {
+  const [p] = await db.select({ id: patients.id }).from(patients).where(and(eq(patients.branchId, branchId), eq(patients.patientCode, code))).limit(1);
   if (!p) return false;
   const res = await db
     .update(appointments)

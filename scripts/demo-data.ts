@@ -13,7 +13,7 @@ async function main() {
   const pts = [];
   for (let i = 0; i < 60; i++) {
     const [p] = await db.insert(schema.patients).values({
-      patientCode: generatePatientCode(), name: `${NAMES[i % NAMES.length]} ${String.fromCharCode(65 + (i % 26))}`,
+      branchId: doctor.branchId, patientCode: generatePatientCode(), name: `${NAMES[i % NAMES.length]} ${String.fromCharCode(65 + (i % 26))}`,
       phone: `9${String(800000000 + i * 7919).slice(0, 9)}`, age: 5 + ((i * 13) % 70), gender: i % 2 ? "female" : "male",
     }).returning();
     pts.push(p);

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { desc, eq, ilike, like, or, sql } from "drizzle-orm";
+import { and, desc, eq, ilike, like, or, sql } from "drizzle-orm";
 import { Search } from "lucide-react";
 import { db, schema } from "@/db";
 import { requireUser } from "@/lib/auth";
@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic";
 const { patients, appointments } = schema;
 
 export default async function PatientsPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
-  await requireUser({ role: "doctor" });
+  const user = await requireUser({ role: "doctor" });
   const q = ((await searchParams).q ?? "").trim();
   let results: { id: number; patientCode: string; name: string; phone: string; age: number | null; lastVisit: string | null; visits: number }[] = [];
 
@@ -21,7 +21,7 @@ export default async function PatientsPage({ searchParams }: { searchParams: Pro
     const digits = q.replace(/\D/g, "");
     const looksLikeCode = /^(pt)?[-\s]?[a-z0-9]{6}$/i.test(q) && /[a-z]/i.test(q.replace(/^pt/i, ""));
     if (looksLikeCode) {
-      const [hit] = await db.select({ code: patients.patientCode }).from(patients).where(eq(patients.patientCode, normalizePatientCode(q))).limit(1);
+      const [hit] = await db.select({ code: patients.patientCode }).from(patients).where(and(eq(patients.branchId, user.branchId), eq(patients.patientCode, normalizePatientCode(q)))).limit(1);
       if (hit) redirect(`/staff/patients/${hit.code}`);
     }
     const where =
@@ -40,7 +40,7 @@ export default async function PatientsPage({ searchParams }: { searchParams: Pro
       })
       .from(patients)
       .leftJoin(appointments, eq(appointments.patientId, patients.id))
-      .where(where)
+      .where(and(eq(patients.branchId, user.branchId), where))
       .groupBy(patients.id)
       .orderBy(desc(sql`max(${appointments.date})`))
       .limit(50);

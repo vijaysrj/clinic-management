@@ -32,6 +32,7 @@ export const gender = pgEnum("gender", ["male", "female", "other"]);
 
 export const branches = pgTable("branches", {
   id: serial("id").primaryKey(),
+  slug: text("slug").notNull().unique(), // public address: /c/<slug>
   name: text("name").notNull(),
   address: text("address"),
   phone: text("phone"),
@@ -100,6 +101,7 @@ export const patients = pgTable(
   "patients",
   {
     id: serial("id").primaryKey(),
+    branchId: integer("branch_id").notNull().references(() => branches.id),
     patientCode: text("patient_code").notNull().unique(),
     name: text("name").notNull(),
     phone: text("phone").notNull(),
@@ -107,7 +109,7 @@ export const patients = pgTable(
     gender: gender("gender"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [index("patients_phone_idx").on(t.phone)],
+  (t) => [index("patients_phone_idx").on(t.branchId, t.phone)],
 );
 
 export const appointments = pgTable(

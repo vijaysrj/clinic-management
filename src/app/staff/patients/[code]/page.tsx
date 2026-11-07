@@ -15,7 +15,7 @@ export const dynamic = "force-dynamic";
 export default async function PatientPage({ params }: { params: Promise<{ code: string }> }) {
   const user = await requireUser({ role: "doctor" });
   const code = normalizePatientCode(decodeURIComponent((await params).code));
-  const [p] = await db.select().from(schema.patients).where(eq(schema.patients.patientCode, code)).limit(1);
+  const [p] = await db.select().from(schema.patients).where(and(eq(schema.patients.branchId, user.branchId), eq(schema.patients.patientCode, code))).limit(1);
   if (!p) notFound();
   const history = await getPatientHistory(p.id);
   const seen = history.filter((h) => h.status === "completed");

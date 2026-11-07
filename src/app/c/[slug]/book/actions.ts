@@ -1,16 +1,19 @@
 "use server";
 
-import { BookingError, createBooking } from "@/lib/booking";
+import { BookingError, createBooking, getBranchBySlug } from "@/lib/booking";
 import { bookingSchema, type BookingForm, type BookingResult } from "@/lib/bookingSchema";
 import { normalizePatientCode } from "@/lib/patientCode";
 
-export async function bookAppointment(form: BookingForm): Promise<BookingResult> {
+export async function bookAppointment(slug: string, form: BookingForm): Promise<BookingResult> {
+  const clinic = await getBranchBySlug(slug);
+  if (!clinic) return { ok: false, error: "Clinic not found." };
   const parsed = bookingSchema.safeParse(form);
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Please check the details." };
   const d = parsed.data;
   try {
     const { appointment, patient } = await createBooking({
       ...d,
+      branchId: clinic.id,
       patientCode: d.patientCode ? normalizePatientCode(d.patientCode) : null,
       source: "online",
     });

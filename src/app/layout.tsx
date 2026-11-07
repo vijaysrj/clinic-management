@@ -1,8 +1,9 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import { APP_NAME } from "@/lib/brand";
 
 export const metadata: Metadata = {
-  title: "Clinic",
+  title: APP_NAME,
   description: "Book a doctor's appointment and check your place in the queue.",
 };
 

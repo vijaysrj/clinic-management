@@ -6,13 +6,14 @@ import { bookingSchema, type BookingForm, type BookingResult } from "@/lib/booki
 import { normalizePatientCode } from "@/lib/patientCode";
 
 export async function bookWalkIn(form: BookingForm): Promise<BookingResult> {
-  await requireUser();
+  const user = await requireUser();
   const parsed = bookingSchema.safeParse(form);
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Please check the details." };
   const d = parsed.data;
   try {
     const { appointment, patient } = await createBooking({
       ...d,
+      branchId: user.branchId,
       patientCode: d.patientCode ? normalizePatientCode(d.patientCode) : null,
       source: "walk_in",
     });

@@ -30,12 +30,14 @@ export function BookingFlow({
   doctors,
   initialDoctorId,
   initialPatientCode,
+  clinicSlug,
   action,
   staffMode = false,
 }: {
   doctors: Doctor[];
   initialDoctorId?: number;
   initialPatientCode?: string;
+  clinicSlug?: string;
   action: (f: BookingForm) => Promise<BookingResult>;
   staffMode?: boolean;
 }) {
@@ -56,21 +58,21 @@ export function BookingFlow({
   // Remember the patient ID on this device so returning patients only pick a slot.
   useEffect(() => {
     let code = initialPatientCode ?? "";
-    try { code ||= localStorage.getItem("clinic.patientCode") ?? ""; } catch {}
+    try { code ||= localStorage.getItem(`clinic.patientCode.${clinicSlug}`) ?? ""; } catch {}
     if (code) { setRet((r) => ({ ...r, code })); setMode("returning"); }
-  }, [initialPatientCode]);
+  }, [initialPatientCode, clinicSlug]);
 
   useEffect(() => {
     setFound(null); setLookupMsg(null);
     const code = ret.code.trim();
     if (mode !== "returning" || code.length < 6 || (!staffMode && ret.last4.length !== 4)) return;
     const t = setTimeout(() => {
-      fetch(`/api/patient-lookup?code=${encodeURIComponent(code)}&last4=${ret.last4}`)
+      fetch(`/api/patient-lookup?code=${encodeURIComponent(code)}&last4=${ret.last4}${clinicSlug ? `&clinic=${clinicSlug}` : ""}`)
         .then((r) => r.json())
         .then((j) => (j.found ? setFound({ name: j.name, code: j.code }) : setLookupMsg("No match. Check the ID and the last 4 digits of your mobile number.")));
     }, 250);
     return () => clearTimeout(t);
-  }, [mode, ret, staffMode]);
+  }, [mode, ret, staffMode, clinicSlug]);
 
   useEffect(() => {
     if (!doctorId) return;
@@ -109,8 +111,8 @@ export function BookingFlow({
           ? { doctorId, date, startMin: slot.startMin, patientCode: ret.code, phoneLast4: ret.last4, name: "", phone: "", age: "", gender: "" }
           : { doctorId, date, startMin: slot.startMin, ...form, patientCode: "", phoneLast4: "" };
       const res = await action(payload);
-      if (res.ok && !staffMode) { try { localStorage.setItem("clinic.patientCode", res.code); } catch {} }
-      if (res.ok) router.push(staffMode ? `/staff/queue?highlight=${res.appointmentId}` : `/status/${res.code}?booked=${res.appointmentId}`);
+      if (res.ok && !staffMode) { try { localStorage.setItem(`clinic.patientCode.${clinicSlug}`, res.code); } catch {} }
+      if (res.ok) router.push(staffMode ? `/staff/queue?highlight=${res.appointmentId}` : `/c/${clinicSlug}/status/${res.code}?booked=${res.appointmentId}`);
       else {
         setError(res.error);
         if (res.error.includes("taken")) { setSlot(null); loadSlots(doctorId, date); }

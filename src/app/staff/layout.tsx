@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { LogOut, Stethoscope } from "lucide-react";
+import { ExternalLink, LogOut, Stethoscope } from "lucide-react";
 import { destroySession, requireUser } from "@/lib/auth";
-import { getDefaultBranch } from "@/lib/booking";
+import { getBranch } from "@/lib/booking";
 import { StaffNav, type NavItem } from "@/components/StaffNav";
 
 async function logout() {
@@ -13,7 +13,7 @@ async function logout() {
 
 export default async function StaffLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
-  const branch = await getDefaultBranch();
+  const branch = await getBranch(user.branchId);
   const items: NavItem[] = [
     { href: "/staff/queue", label: "Today's queue", icon: "queue" },
     ...(user.role === "doctor"
@@ -36,6 +36,11 @@ export default async function StaffLayout({ children }: { children: React.ReactN
           <span className="font-semibold leading-tight">{branch?.name ?? "Clinic"}</span>
         </Link>
         <StaffNav items={items} />
+        {branch && (
+          <Link href={`/c/${branch.slug}`} target="_blank" className="mt-2 flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-muted hover:bg-white hover:text-ink">
+            <ExternalLink className="size-4" /> Patient booking page
+          </Link>
+        )}
         <div className="mt-3 flex items-center justify-between border-t border-line pt-3 md:mt-4 md:block md:pt-4">
           <div>
             <div className="px-2 text-sm font-medium">{user.name}</div>
